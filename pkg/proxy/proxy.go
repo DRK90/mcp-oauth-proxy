@@ -423,7 +423,18 @@ func (p *OAuthProxy) mcpProxyHandler(w http.ResponseWriter, r *http.Request, nex
 			Director: func(req *http.Request) {
 				req.Header.Del("Authorization")
 				req.Header.Set("X-Forwarded-Host", req.Host)
-				req.Header.Set("X-Forwarded-Proto", req.URL.Scheme)
+				// req.URL.Scheme is empty for incoming server requests; derive the
+				// scheme so the backend can reconstruct a valid absolute URL. Honor an
+				// upstream edge's header first, then TLS, then default to http.
+				scheme := req.Header.Get("X-Forwarded-Proto")
+				if scheme == "" {
+					if req.TLS != nil {
+						scheme = "https"
+					} else {
+						scheme = "http"
+					}
+				}
+				req.Header.Set("X-Forwarded-Proto", scheme)
 
 				newURL, _ := url.Parse(targetURL)
 				req.URL.Scheme = newURL.Scheme

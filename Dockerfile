@@ -40,8 +40,9 @@ WORKDIR /app
 # Copy binary from builder stage
 COPY --from=builder /app/oauth-proxy .
 
-# Change ownership to non-root user
-RUN chown -R oauth:oauth /app
+# Create the SQLite data dir and hand /app to the non-root user (default DB is
+# /app/data/oauth_proxy.db; mount a volume there for persistence).
+RUN mkdir -p /app/data && chown -R oauth:oauth /app
 
 # Switch to non-root user
 USER oauth
