@@ -88,6 +88,27 @@ func TestIntegrationFlow(t *testing.T) {
 		assert.Contains(t, w.Header().Get("WWW-Authenticate"), "Bearer")
 	})
 
+	// RFC 6750 §3: a request with NO credentials gets a bare challenge (no error
+	// code); a request presenting a bad token gets error="invalid_token".
+	t.Run("ChallengeWithoutErrorWhenNoToken", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/mcp", nil)
+		handler.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.NotContains(t, w.Header().Get("WWW-Authenticate"), "error=")
+		assert.Contains(t, w.Header().Get("WWW-Authenticate"), "resource_metadata=")
+	})
+	t.Run("InvalidTokenErrorWhenBadToken", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/mcp", nil)
+		req.Header.Set("Authorization", "Bearer not-a-real-token")
+		handler.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.Contains(t, w.Header().Get("WWW-Authenticate"), `error="invalid_token"`)
+	})
+
 	// Test protected resource metadata with path parameter
 	t.Run("ProtectedResourceMetadataWithPath", func(t *testing.T) {
 		w := httptest.NewRecorder()

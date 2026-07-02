@@ -55,7 +55,7 @@ type OAuthMetadata struct {
 type OAuthProtectedResourceMetadata struct {
 	Resource              string   `json:"resource"`
 	AuthorizationServers  []string `json:"authorization_servers"`
-	Scopes                []string `json:"scopes,omitempty"`
+	Scopes                []string `json:"scopes_supported,omitempty"` // RFC 9728 §2 field name
 	ResourceName          string   `json:"resource_name,omitempty"`
 	ResourceDocumentation string   `json:"resource_documentation,omitempty"`
 }

@@ -107,6 +107,14 @@ func (p *TokenValidator) WithTokenValidation(next http.HandlerFunc) http.Handler
 			fromCookie = false
 		}
 
+		// No credentials at all: per RFC 6750 §3, the challenge MUST NOT carry an
+		// error code (error="invalid_token" would tell clients to refresh instead
+		// of starting the auth flow).
+		if token == "" {
+			p.sendChallenge(w, r)
+			return
+		}
+
 		// Validate token (handles both API keys and JWT/simple tokens)
 		tokenInfo, err := p.tokenManager.GetTokenInfoWithContext(r.Context(), token, p.mcpServerID)
 		if err != nil {
@@ -295,6 +303,28 @@ func (p *TokenValidator) handleOauthFlow(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("X-Redirect-URL", authURL)
 	http.Redirect(w, r, authURL, http.StatusFound)
+}
+
+// sendChallenge answers a request that presented NO credentials: a bare
+// WWW-Authenticate challenge with the resource metadata pointer and no error
+// code (RFC 6750 §3 — error codes are only for requests that DID include a
+// token; sending invalid_token here misleads clients into refreshing instead
+// of starting the authorization flow).
+func (p *TokenValidator) sendChallenge(w http.ResponseWriter, r *http.Request) {
+	if !slices.Contains(p.mcpPaths, r.URL.Path) && strings.Contains(strings.ToLower(r.UserAgent()), "mozilla") {
+		p.handleOauthFlow(w, r)
+		return
+	}
+	w.Header().Set(
+		"WWW-Authenticate",
+		fmt.Sprintf(
+			`Bearer resource_metadata="%s"`,
+			fmt.Sprintf("%s/.well-known/oauth-protected-resource%s", handlerutils.GetBaseURL(r), r.URL.Path),
+		),
+	)
+	handlerutils.JSON(w, http.StatusUnauthorized, map[string]string{
+		"message": "Authentication required.",
+	})
 }
 
 func (p *TokenValidator) sendUnauthorizedResponse(w http.ResponseWriter, r *http.Request, message string) {

@@ -319,6 +319,12 @@ func (p *OAuthProxy) protectedResourceMetadataHandler(w http.ResponseWriter, r *
 	baseURL := handlerutils.GetBaseURL(r)
 	prefix := p.config.RoutePrefix
 	resourceURL := strings.TrimSuffix(baseURL+prefix, "/")
+	// RFC 9728: the metadata URL embeds the resource path after the well-known
+	// segment, and `resource` must be that canonical identifier (a request to
+	// /.well-known/oauth-protected-resource/mcp describes <origin>/mcp).
+	if path := r.PathValue("path"); path != "" {
+		resourceURL = resourceURL + "/" + path
+	}
 
 	metadata := types.OAuthProtectedResourceMetadata{
 		Resource:              resourceURL,
